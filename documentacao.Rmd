@@ -1,0 +1,558 @@
+---
+title: "Comparando algoritmos da posteriori"
+author: "Igor Braga"
+date: "07/07/2022"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: default
+---
+\usepackage{cancel}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(data.table)
+
+```
+
+## Intro
+
+No presente trabalho, começaremos introduzindo os conceitos básicos da inferência bayesiana, em seguida discutiremos os seguintes métodos computacionais:  _Método da rejeição_ e _Método SIR_ para previsão da distribuição a posteriori.
+
+## Introdução do problema
+
+
+
+## Metodologia
+
+A _inferência bayesiana_ é uma escola da estatística que se baseia na definição de probabilidade como um grau de informação. A partir da combinação das informações subjetivas e as proveniente dos dados observados, por meio do teorema de Bayes podemos fazer declarações probabilisticas. Em outras palavras, a _inferência bayesiana_ é uma alternativa à inferência clássica, baseada na distribuição a posteriori.
+
+O que é a priori
+
+O que é a posteriori
+
+O que é verossimilhança
+
+O que é distribuição de referência
+
+## Teorema de Bayes
+
+Denotaremos a prior de $\theta$ como sendo $\pi(\theta)$, isso é, tudo que o pesquisador sabe sobre $\theta$. A função de verossimilhança será representada por $L(\theta|x) = f(x|\theta)$, dessa forma, a informação contida em $\pi(\theta)$ é atualizada através da informação dos dados contida na verossimilhança, por meio do teorema de Bayes, encontrando assim nossa distribuição a posteriori
+$$\pi(\theta|x)=\frac{f(x|\theta)\pi(\theta)}{\int\limits_{\Theta}f(x|\theta)\pi(\theta)}$$
+Em que nosso numerador é composto pelo produto entre a função de verossimilhança e a priori, e nosso denominador é a integral em $\theta$ de toda função de verossimilhança
+
+
+## Método computacional
+
+Para esse estudo vamos aplicar alguns métodos computacionais em um cenário em que sabemos previamente nossa posteriori, afim de compararmos nossos resultados.Para a aplicação dos métodos utilizamos os mesmos parâmetros para que a comparação seja possível, variando apenas nossos parâmetros da distribuição a ser estudada.
+
+```{r}
+n <- 10
+theta <- 0.5
+set.seed(1118)
+bernoulli <- rbinom(n, size = 1, prob = 0.5)
+soma_n <- sum(bernoulli)
+```
+
+
+### Método da Rejeição {#metodo-da-rejeicao}
+
+O objetivo desse estudo é avaliar a escolha da distribuição de refência na taxa de aceitação da a priori.
+
+1. Gere $\theta^{*}$ da função a priori $\pi(\theta)$
+2. Gere $u \sim Uniforme(0,1)$
+3. Se $u \leq \frac{f(x|\theta^{*})}{f(x|\hat{\theta}_{MV})}$ $\Rightarrow$ aceitamos $\theta^{*}$
+4. Repita os passos até obter a amostra com o tamanho que deseja 
+
+
+
+#### Caso 1
+
+Nesse primeiro caso vamos analisar a construção do método para uma Beta-Bernoulli em seu caso mais simples, quando a distribuição de referência é a própria $Unif(0,1)$
+
+
+```{r pressure, echo=TRUE}
+# Beta(1,1) ---------------------------------------------------------------
+alpha <- 1
+beta <- 1
+
+##função de verossimilhança ----------------------------------------------
+f_x_dado_theta <- (theta^(soma_n))*(1 - theta)^(n - soma_n)
+
+##distribuição a priori --------------------------------------------------
+pi_theta <- (theta^(alpha + soma_n -1))*((1 - theta)^(beta + soma_n - 1))
+
+
+##distribuição preditiva a priori ---------------------------------------
+f_x <- ((gamma(alpha + beta))/(gamma(alpha))*(gamma(beta)))*((gamma(alpha + soma_n))*(gamma(beta + n - soma_n)))/(gamma(alpha + beta + n))
+
+
+##distribuição a posteriori para theta -----------------------------------
+f_theta_dado_x <- (f_x_dado_theta*pi_theta)/f_x
+alpha + soma_n ; beta + n - soma_n#será uma beta(7,5)
+
+
+# #METODO DE REJEIÇÃO -----------------------------------------------------
+pi_theta#a priori
+g_theta <- pi_theta#g_heta é a distribuição de referência
+pi_theta_dado_x <- (theta^(alpha + soma_n - 1))*((1 - theta)^(beta + n - soma_n - 1))
+theta_max_veross <- soma_n/n
+f_x_dado_theta_max_veross <- (theta_max_veross^(soma_n))*(1 - theta_max_veross)^(n - soma_n)
+
+M <- f_x_dado_theta_max_veross
+#1 gerando theta* , da funç]ao g_theta que é igual a pi_theta
+theta_estrela <- rbeta(n = 20000, 1, 1)
+#2 gerando uma uniforme(0,1)
+u <- runif(20000, 0, 1)
+#3 se u <= f(theta)/M*g(theta_estrela)
+M #estimador de maxima verossimilhança
+f_x_dado_theta_estrela <- (theta_estrela^(soma_n))*(1 - theta_estrela)^(n - soma_n)#estimador de verossimilhança pra distribuição escolhida
+armazenar_theta_estrela <- u <= (f_x_dado_theta_estrela/f_x_dado_theta_max_veross)#valor gerado de pi_theta_dado_x que foi aceito)
+
+armazenar_theta_estrela <- ifelse(((u <= f_x_dado_theta_estrela/f_x_dado_theta_max_veross)), 1, 0)
+armazenar_theta_estrela <- cbind(theta_estrela, armazenar_theta_estrela)
+armazenar_theta_estrela <- as.data.table(armazenar_theta_estrela)
+armazenar_theta_estrela <- armazenar_theta_estrela[armazenar_theta_estrela == 1]
+                                 
+dist_beta <- rbeta(20000, 7, 5)#distribuição a priori
+
+par(mfrow = c(1,1))
+hist(armazenar_theta_estrela$theta_estrela, main = "Beta(7,5)*", probability = T)#distribuição a posteriori
+curve(dbeta(x, 7, 5), add = T, col = "red")
+##probabilidade de aceitação ---------------------------------------------
+nrow(armazenar_theta_estrela)/20000#0.36205
+```
+
+```{r}
+# Beta(5,5) ---------------------------------------------------------------
+alpha <- 5
+beta <- 5
+
+##função de verossimilhança ----------------------------------------------
+f_x_dado_theta <- (theta^(soma_n))*(1 - theta)^(n - soma_n)
+
+##distribuição preditiva a priori ---------------------------------------
+f_x <- ((gamma(alpha + beta))/(gamma(alpha))*(gamma(beta)))*((gamma(alpha + soma_n))*(gamma(beta + n - soma_n)))/(gamma(alpha + beta + n))
+
+
+##distribuição a posteriori para theta -----------------------------------
+f_theta_dado_x <- (f_x_dado_theta*pi_theta)/f_x
+alpha + soma_n ; beta + n - soma_n#será uma beta(11,9)
+
+dist_beta <- rbeta(10000, 11, 9)#olhar se é igual a distribuição a posteriori
+
+# #METODO DE REJEIÇÃO -----------------------------------------------------
+pi_theta#a priori
+g_theta <- pi_theta#g_heta é a distribuição de referência
+pi_theta_dado_x <- (theta^(alpha + soma_n - 1))*((1 - theta)^(beta + n - soma_n - 1))
+theta_max_veross <- soma_n/n
+f_x_dado_theta_max_veross <- (theta_max_veross^(soma_n))*(1 - theta_max_veross)^(n - soma_n)
+
+M <- f_x_dado_theta_max_veross
+#1 gerando theta* , da funç]ao g_theta que é igual a pi_theta
+theta_estrela <- rbeta(n = 20000, 5, 5)
+#2 gerando uma uniforme(0,1)
+u <- runif(20000, 0, 1)
+#3 se u <= f(theta)/M*g(theta_estrela)
+M #estimador de maxima verossimilhança
+f_x_dado_theta_estrela <- (theta_estrela^(soma_n))*(1 - theta_estrela)^(n - soma_n)#estimador de verossimilhança pra distribuição escolhida
+armazenar_theta_estrela <- u <= (f_x_dado_theta_estrela/f_x_dado_theta_max_veross)#valor gerado de pi_theta_dado_x que foi aceito)
+
+armazenar_theta_estrela <- ifelse(((u <= f_x_dado_theta_estrela/f_x_dado_theta_max_veross)), 1, 0)
+armazenar_theta_estrela <- cbind(theta_estrela, armazenar_theta_estrela)
+armazenar_theta_estrela <- as.data.table(armazenar_theta_estrela)
+armazenar_theta_estrela <- armazenar_theta_estrela[armazenar_theta_estrela == 1]
+
+hist(armazenar_theta_estrela$theta_estrela, main = "Beta(11,9)*", probability = T)#distribuição a posteriori
+curve(dbeta(x,11, 9), add = T, col = "red")
+##probabilidade de aceitação ---------------------------------------------
+nrow(armazenar_theta_estrela)/20000#0.6337
+
+```
+
+```{r}
+# Beta(5,1) ---------------------------------------------------------------
+alpha <- 5
+beta <- 1
+
+##função de verossimilhança ----------------------------------------------
+f_x_dado_theta <- (theta^(soma_n))*(1 - theta)^(n - soma_n)
+
+##distribuição a priori --------------------------------------------------
+pi_theta <- (theta^(alpha + soma_n -1))*((1 - theta)^(beta + soma_n - 1))
+
+
+##distribuição preditiva a priori ---------------------------------------
+f_x <- ((gamma(alpha + beta))/(gamma(alpha))*(gamma(beta)))*((gamma(alpha + soma_n))*(gamma(beta + n - soma_n)))/(gamma(alpha + beta + n))
+
+
+##distribuição a posteriori para theta -----------------------------------
+f_theta_dado_x <- (f_x_dado_theta*pi_theta)/f_x
+alpha + soma_n ; beta + n - soma_n#será uma beta(11,5)
+
+dist_beta <- rbeta(10000, 11, 5)#olhar se é igual a distribuição a posteriori
+
+# #METODO DE REJEIÇÃO -----------------------------------------------------
+pi_theta#a priori
+g_theta <- pi_theta#g_heta é a distribuição de referência
+pi_theta_dado_x <- (theta^(alpha + soma_n - 1))*((1 - theta)^(beta + n - soma_n - 1))
+theta_max_veross <- soma_n/n
+f_x_dado_theta_max_veross <- (theta_max_veross^(soma_n))*(1 - theta_max_veross)^(n - soma_n)
+
+M <- f_x_dado_theta_max_veross
+#1 gerando theta* , da funç]ao g_theta que é igual a pi_theta
+theta_estrela <- rbeta(n = 20000, 5, 1)
+#2 gerando uma uniforme(0,1)
+u <- runif(20000, 0, 1)
+#3 se u <= f(theta)/M*g(theta_estrela)
+M #estimador de maxima verossimilhança
+f_x_dado_theta_estrela <- (theta_estrela^(soma_n))*(1 - theta_estrela)^(n - soma_n)#estimador de verossimilhança pra distribuição escolhida
+armazenar_theta_estrela <- u <= (f_x_dado_theta_estrela/f_x_dado_theta_max_veross)#valor gerado de pi_theta_dado_x que foi aceito)
+
+armazenar_theta_estrela <- ifelse(((u <= f_x_dado_theta_estrela/f_x_dado_theta_max_veross)), 1, 0)
+armazenar_theta_estrela <- cbind(theta_estrela, armazenar_theta_estrela)
+armazenar_theta_estrela <- as.data.table(armazenar_theta_estrela)
+armazenar_theta_estrela <- armazenar_theta_estrela[armazenar_theta_estrela == 1]
+
+hist(armazenar_theta_estrela$theta_estrela, main = "Beta(11,5)*", probability = T)#distribuição a posteriori
+curve(dbeta(x, 11, 5), add = T, col = "red")
+##probabilidade de aceitação ---------------------------------------------
+nrow(armazenar_theta_estrela)/20000#0.2807
+
+```
+
+```{r}
+# Beta(1,5) ---------------------------------------------------------------
+alpha <- 1
+beta <- 5
+
+##função de verossimilhança ----------------------------------------------
+f_x_dado_theta <- (theta^(soma_n))*(1 - theta)^(n - soma_n)
+
+##distribuição a priori --------------------------------------------------
+pi_theta <- (theta^(alpha + soma_n -1))*((1 - theta)^(beta + soma_n - 1))
+
+
+##distribuição preditiva a priori ---------------------------------------
+f_x <- ((gamma(alpha + beta))/(gamma(alpha))*(gamma(beta)))*((gamma(alpha + soma_n))*(gamma(beta + n - soma_n)))/(gamma(alpha + beta + n))
+
+
+##distribuição a posteriori para theta -----------------------------------
+f_theta_dado_x <- (f_x_dado_theta*pi_theta)/f_x
+alpha + soma_n ; beta + n - soma_n#será uma beta(7,9)
+
+dist_beta <- rbeta(10000, 7, 9)#olhar se é igual a distribuição a posteriori
+
+# #METODO DE REJEIÇÃO -----------------------------------------------------
+pi_theta#a priori
+g_theta <- pi_theta#g_heta é a distribuição de referência
+pi_theta_dado_x <- (theta^(alpha + soma_n - 1))*((1 - theta)^(beta + n - soma_n - 1))
+theta_max_veross <- soma_n/n
+f_x_dado_theta_max_veross <- (theta_max_veross^(soma_n))*(1 - theta_max_veross)^(n - soma_n)
+
+M <- f_x_dado_theta_max_veross
+#1 gerando theta* , da funç]ao g_theta que é igual a pi_theta
+theta_estrela <- rbeta(n = 20000, 1, 5)
+#2 gerando uma uniforme(0,1)
+u <- runif(20000, 0, 1)
+#3 se u <= f(theta)/M*g(theta_estrela)
+M #estimador de maxima verossimilhança
+f_x_dado_theta_estrela <- (theta_estrela^(soma_n))*(1 - theta_estrela)^(n - soma_n)#estimador de verossimilhança pra distribuição escolhida
+armazenar_theta_estrela <- u <= (f_x_dado_theta_estrela/f_x_dado_theta_max_veross)#valor gerado de pi_theta_dado_x que foi aceito)
+
+armazenar_theta_estrela <- ifelse(((u <= f_x_dado_theta_estrela/f_x_dado_theta_max_veross)), 1, 0)
+armazenar_theta_estrela <- cbind(theta_estrela, armazenar_theta_estrela)
+armazenar_theta_estrela <- as.data.table(armazenar_theta_estrela)
+armazenar_theta_estrela <- armazenar_theta_estrela[armazenar_theta_estrela == 1]
+
+hist(armazenar_theta_estrela$theta_estrela, main = "Beta(7,9)*", probability = T)#distribuição a posteriori
+curve(dbeta(x, 7, 9), add = T, col = "red")
+##probabilidade de aceitação ---------------------------------------------
+nrow(armazenar_theta_estrela)/20000#0.0926
+
+```
+
+#### Caso 2
+Nesse segundo caso vamos analisar a construção do método para uma Beta-Bernoulli quando a distribuição de referência é diferente da $Unif(0,1)$
+
+```{r}
+# Beta(1,4) ---------------------------------------------------------------
+alpha <- 1
+beta <- 1
+
+alpha2 <- 1
+beta2 <- 4
+##função de verossimilhança ----------------------------------------------
+f_x_dado_theta <- (theta^(soma_n))*(1 - theta)^(n - soma_n)
+
+##distribuição a priori --------------------------------------------------
+pi_theta <- ((gamma(alpha + beta))/(gamma(alpha)*gamma(beta)))*((theta^(alpha - 1))*(1 - theta)^(beta - 1))
+
+
+##distribuição de referência ---------------------------------------------
+g_theta <- ((gamma(alpha2 + beta2))/(gamma(alpha2)*gamma(beta2)))*((theta^(alpha2 - 1))*(1 - theta)^(beta2 - 1))
+
+##distribuição a posteriori ----------------------------------------------
+f_theta_dado_x <- c(alpha + soma_n, beta + n - soma_n)
+
+## encontrando theta que maximiza nosso M --------------------------------
+max <- ((theta^(soma_n + alpha - 1))*((1 - theta)^(n + beta - soma_n - 1))/((theta^(alpha2 - 1))*(1 - theta)^(beta2 - 1)))
+theta_estrela <- max
+M <- (((gamma(alpha + beta))/(gamma(alpha))*(gamma(beta)))*((theta_estrela^(soma_n))*((1 - theta_estrela)^(n - soma_n)))*((theta_estrela)^(alpha - 1))*((1 - theta_estrela)^(beta - 1)))/((((gamma(alpha2 + beta2))/(gamma(alpha2))*(gamma(beta2)))*((theta_estrela^(alpha2 - 1))*((1 - theta_estrela)^(beta2 - 1)))))
+
+##METODO DE REJEIÇÃO -----------------------------------------------------
+# 1 condição de existencia de M -------------------------------------------
+stopifnot(beta + alpha + n > alpha2 + beta2)
+# 2 condição de existencia de M -------------------------------------------
+stopifnot(alpha + soma_n > alpha2 & beta + n - soma_n > beta2)
+
+pi_theta #a priori
+g_theta #g_heta é a distribuição de referência
+pi_theta_dado_x <- (theta^(alpha + soma_n - 1))*((1 - theta)^(beta + n - soma_n - 1))
+theta_max_veross <- soma_n/n
+f_x_dado_theta_max_veross <- (theta_max_veross^(soma_n))*(1 - theta_max_veross)^(n - soma_n)
+
+M <- (((gamma(alpha2)*gamma(beta2)*gamma(alpha+beta))/(gamma(alpha2 + beta2)*gamma(alpha)*gamma(beta)))*((alpha + soma_n - alpha2)/(beta + n - beta2 + alpha - alpha2))^(alpha + soma_n - alpha2))*(1 - (alpha + soma_n - alpha2)/(beta + n - beta2 + alpha - alpha2))^(beta + n - soma_n - beta2) 
+#1 gerando theta* , da funç]ao g_theta que é igual a pi_theta
+theta_estrela <- rbeta(n = 20000, 1, 1)
+#2 gerando uma uniforme(0,1)
+u <- runif(20000, 0, 1)
+#3 se u <= f(theta)/M*g(theta_estrela)
+M #...
+f_x_dado_theta_estrela <- (theta_estrela^(soma_n))*(1 - theta_estrela)^(n - soma_n)#estimador de verossimilhança pra distribuição escolhida
+armazenar_theta_estrela <- u <= ((f_x_dado_theta_estrela*pi_theta)/(M*f_x_dado_theta_max_veross))#valor gerado de pi_theta_dado_x que foi aceito)
+
+armazenar_theta_estrela <- ifelse(((u <= f_x_dado_theta_estrela/f_x_dado_theta_max_veross)), 1, 0)
+armazenar_theta_estrela <- cbind(theta_estrela, armazenar_theta_estrela)
+armazenar_theta_estrela <- as.data.table(armazenar_theta_estrela)
+armazenar_theta_estrela <- armazenar_theta_estrela[armazenar_theta_estrela == 1]
+
+dist_beta <- rbeta(20000, 7, 5)#distribuição a priori
+
+par(mfrow = c(1,1))
+hist(armazenar_theta_estrela$theta_estrela, prob = T, main = "Beta(7,5)*")#distribuição a posteriori
+curve(dbeta(x, 7, 5), add = T, col = "red")
+##probabilidade de aceitação ---------------------------------------------
+nrow(armazenar_theta_estrela)/20000#0.36205
+
+```
+
+
+#### Considerações
+
+Vale ressaltar que que caso a distribuição a priori e a função de máxima verossimilhança não forem razoavelmente concordantes esse método pode nos gerar péssimos resultados, isso ocorre pois os valores de $\theta$ gerados de $\pi(\theta)$ podem estar muito distantes da região onde a distribuição a posteriori pões massa significativa, resultando em uma percental de rejeição alto.
+
+Para esse método é necessário maximizar a função de verossimilhança, o que pode ser trabalhoso em modelos mais complexos. Caso se depare com essa situação, o método de rejeição deixa de ser simples, dessa forma outros métodos passam a ser recomendados, como o que veremos a seguir
+
+Com base nos estudos feitos foi possível avaliar a influência da distribuição de referência na taxa de aceitação da priori (falar sobre a taxa)
+
+### Método SIR {#metodos-sir}
+
+O método SIR(Sampling Importance Resampling), também conhecido como o Bootstrap Bayesiano, é um pouco mais simples computacionalmente que o método visto anteriormente. Nesse estudo será comparado o passo 3 do método com uma amostragem simples com reposição utilizando o comando `sample`, veremos a importância da escolha da distribuição de importância e um estudo sobre o porquê de o tamanho de amostra recomendado ser J/20.
+
+1. Gere uma amostra $\theta_{1}, . . . , \theta_{J}$ da função de importância $g(\theta)$
+2.Para cada $\theta_{i}, i = 1,...,J$ calcule
+
+$$\omega_{i}=\frac{f(\theta_{i})}{g(\theta_{i})}$$
+e os pesos
+$$q_{i}=\frac{\omega_{i}}{\sum\limits_{i}^{J}\omega_{i}}$$
+3. Selecione uma amostra $\theta_{1}^{*},...,\theta_{T}^{*}$, com reposição, da amostra $\theta_{1},...,\theta_{J}$ assumindo que  P($\theta = \theta_{i} = q_{i}$)
+  - gere $u \sim Unif(0,1)$
+  - se $u \in (0, q_{1})$ selecione $\theta_{1}$
+  - se $u \in (q_{1}, q_{1} + q_{2})$ selecione $\theta_{2}$
+
+A amostra $\theta_{1}^{*},...,\theta_{T}^{*}$ pode ser selecionada com reposição e se recomenda que T = J/20, essa recomendação será abordada mais a frente.
+
+```{r}
+#método SIR
+```
+
+```{r}
+#passo 3
+```
+
+```{r}
+#sample
+```
+
+#### Relevância da escolha da Distribuição de Importância
+
+A distribuição onde gero minhas candidatas,distribuição de importância, deve ser mais ampla que a distribuição que gero minha amostra, por essa razão observamos o núcleo da verossimilhança $f(x|\theta)$. Para efeito de estudo, valos fixar a distribuição geradora da amostra como uma Uniforme(0,1)
+
+Caso queira gerar as candidatas da posteriori, é necessário ser uma distribuição que varra todo o espaço paramétrico, para evitar alguns erros que serão vistos adianta, mas antes de seguirmos vamos demonstrar como encontramos a média e variância da distribuição Beta estudada
+
+##### Valor Esperado
+
+Considerando a $f.d.p$ 
+$$f(x)=\frac{\Gamma(\alpha+\beta)}{\Gamma(\alpha)\Gamma(\beta)}x^{\alpha-1}(1-x)^{\beta-1}, 0 < x < 1$$
+podemos adotar a seguinte notação
+
+$$f(x)= \frac{1}{B(\alpha,\beta)}x^{\alpha-1}(1-x)^{\beta-1}$$
+
+assim temos
+$$B(\alpha,\beta)=\frac{\Gamma(\alpha)\Gamma(\beta)}{\Gamma(\alpha+\beta)}$$
+Como nossa distribuição depende de uma Gama, vamos apresentar alguns resultados
+$$\Gamma(\alpha) = \int\limits_{0}^{\infty}x^{\alpha-1}e^{-x}dx$$
+- $\Gamma(1)=\int\limits_{0}^{\infty}e^{-x}dx = 1$
+- Se $\alpha > 1$, então $\Gamma(\alpha) = (\alpha-1)\Gamma(\alpha-1)$
+- $\Gamma(\frac{1}{2}=\sqrt{\pi})$
+- $\Gamma(n) = (n-1)!$, n inteiro positivo
+
+Partindo da definição que $E(X) =\int\limits_{0}^{1}xf(x)dx$ temos
+
+\begin{equation}
+\begin{split}
+E(X) &= \int\limits_{0}^{1}xf(x)dx\\
+&= \int\limits_{0}^{1}\frac{\Gamma(\alpha + \beta)}{\Gamma(\alpha)\Gamma(\beta)}x^{\alpha}(1-x)^{\beta-1}dx\\
+&= \int\limits_{0}^{1} \frac{\alpha}{\alpha + \beta} \times \frac{(\alpha+\beta)\Gamma(\alpha + \beta)}{\alpha \Gamma(\alpha)\Gamma(\beta)}x^{\alpha}(1-x)^{\beta-1}dx\\
+&= \frac{\alpha}{\alpha + \beta} \int\limits_{0}^{1} \frac{\Gamma(\alpha + 1 +\beta)}{\Gamma(\alpha + 1)\Gamma(\beta)}x^{\alpha+1-1}(1-x)^{\beta-1}dx
+\end{split}
+\end{equation}
+
+Como o resultado da integral é igual a 1, para toda Beta($\alpha + 1, \beta$), temos
+
+$$E(X) =  \frac{\alpha}{\alpha + \beta}$$
+##### Variância
+
+Para o calculo da variância temos que ter em mente a seguinte expressão
+
+$$Var(X) = E(X^2) - E(X)^2$$
+Para conseguirmos calcular a variância precisamos então de encontrar $E(X^2)$
+
+Pela definição de $E(X^2) =\int\limits_{0}^{1}{\color{red}{x^{2}}}f(x)dx$, temos
+
+\begin{equation}
+\begin{split}
+E(X^2) &= \int\limits_{0}^{1}\frac{\Gamma(\alpha + \beta)}{\Gamma(\alpha)\Gamma(\beta)}x^{\alpha+1}(1-x)^{\beta-1}dx\\
+&= \int\limits_{0}^{1} {\color{red}{\frac{\Gamma(\alpha+2)}{\alpha + \beta}}} \times {\color{blue}{\frac{(\alpha+\beta)}{\Gamma(\alpha+2)}}} \times \frac{\Gamma(\alpha + \beta)}{\Gamma(\alpha)\Gamma(\beta)}x^{\alpha+1}(1-x)^{\beta-1}dx\\
+&= \frac{{\color{red}{\Gamma(\alpha+2)}}}{\Gamma(\alpha)} \int\limits_{0}^{1} \frac{1}{\alpha+\beta} \times \frac{\Gamma(\alpha + 1 + \beta)}{{\color{blue}{\Gamma(\alpha+2)}}\Gamma(\beta)}x^{\alpha+1}(1-x)^{\beta-1}dx\\
+&= \frac{\Gamma(\alpha+2)}{\Gamma(\alpha)} \int\limits_{0}^{1} \frac{1}{(\alpha+\beta){\color{blue}{(\alpha+\beta+1)}}} \cdot \frac{{\color{blue}{(\alpha+\beta+1)}}\Gamma(\alpha + 1 + \beta)}{\Gamma(\alpha+2)\Gamma(\beta)}x^{\alpha+1}(1-x)^{\beta-1}dx\\
+&= \frac{\Gamma(\alpha+2)}{(\alpha+\beta)(\alpha+\beta+1)\Gamma(\alpha)} \int\limits_{0}^{1} \frac{\Gamma(\alpha+2+\beta)}{\Gamma(\alpha+2)\Gamma(\beta)} \times x^{\alpha+1}(1-x)^{\beta-1}dx
+\end{split}
+\end{equation}
+
+
+Como o resultado da integral é igual a 1, para toda Beta($\alpha + 2, \beta$), temos
+
+$$E(X^2) =  \frac{\Gamma(\alpha+2)}{(\alpha + \beta)(\alpha + \beta + 1)\Gamma(\alpha)}$$
+podendo ser simplificado para
+
+$$E(X^2) = \frac{\alpha(\alpha+1)}{(\alpha+\beta)(\alpha+\beta+1)}$$
+Agora que temos tudo que precisamos para encontrar a variância vamos para o cálculo:
+
+Lembrando que $Var(X) = E(X^2) - E(X)^2$ temos
+
+\begin{equation}
+\begin{split}
+Var(X) &= \frac{\alpha(\alpha+1)}{(\alpha+\beta)(\alpha+\beta+1)} - \frac{\alpha^{2}}{(\alpha + \beta)^{2}}\\
+&= \frac{\alpha(\alpha+1){\color{red}{(\alpha+\beta)}}}{{\color{red}{(\alpha+\beta)^2}}(\alpha+\beta+1)} - \frac{\alpha^{2}{\color{blue}{(\alpha+\beta+1)}}}{(\alpha + \beta)^{2}{\color{blue}{(\alpha+\beta+1)}}}\\
+&= \frac{\not\alpha^{3}+\not\alpha^{2}+\beta\not\alpha^{2}+\alpha\beta - \not\alpha^{3} - \beta\not\alpha^{2} - \not\alpha^{2}}{(\alpha+\beta)^{2}(\alpha+\beta+1)}\\
+&= \frac{\alpha\beta}{(\alpha+\beta)^{2}(\alpha+\beta+1)}
+\end{split}
+\end{equation}
+
+Agora que sabemos encontrar o Valor Esperado $E(X)$ e a Variância $Var(X)$ da distribuição Beta podemos demonstrar a relevância da _distribuição de importância_
+
+##### Distribuiçãon de Importância restrita
+
+Já sabendo que a distribuição a posteriori exata é uma $Beta(7,5)$, a escolha da distribuição de importância como sendo $Beta(10,90)$ foi com intenção de ilustrar o que ocorre quando as candidatas geradas não varrem o espaço paramétrica. Nesse exemplo temos uma média 0.1 e variância 0.0008910891, dessa forma nosso espaço amostral estará extremamente limitado.
+
+```{r}
+n <- 10
+set.seed(1118)
+bernoulli <- rbinom(n, size = 1, prob = 0.5)
+soma_n <- sum(bernoulli)
+#priori
+alpha <- 1
+beta <- 1
+#candidata (distribuição de importância)
+alpha2 <- 10
+beta2 <- 90
+# 1 gerar amostra de tamanho J da função de importância g(theta) que nesse caso é uma uniforme(0,1)
+set.seed(2745)
+vetor_thetas <-rbeta(20000, 1, 1)
+# 2 para cada theta_i, i = 1 até J, calcule wi e os pesos qi
+w <- c()
+for (i in vetor_thetas) {
+  w = c(w,((((i^(soma_n))*(1 - i)^(n - soma_n))*(((gamma(alpha + beta))/(gamma(alpha)*gamma(beta)))*((i^(alpha - 1))*(1 - i)^(beta - 1))))/((gamma(alpha2 + beta2))/(gamma(alpha2)*gamma(beta2)))*((i^(alpha2 - 1))*(1 - i)^(beta2 - 1))))
+}
+q <- w/sum(w)
+stopifnot(sum(q) >= 0.9999)#garantir que a soma das probabilidades resulte em 1
+# 3 selecionar, de um vetor de amostras theta*, uma amostra com reposicao assumindo que a P(theta=thetai) = qi 
+amostra <- sample(vetor_thetas, size = length(vetor_thetas)/20, replace = TRUE, prob = q)
+hist(amostra, probability = T, xlim = c(0,1))
+curve(dbeta(x, 7, 5), add = T, col = "red")
+```
+
+A partir da observação do gráfico podemos validar a hipótese de que a distribuição de importância deve ser mais ampla que a distribuição que gero meus dados. O histograma representa nossa amostra com distribuição de importância Beta(10,90), enquanto o linha em vermelho representa a distribuição a posteriori exata, ou seja, o que esperaríamos que ocorresse com a distribuição da nossa amostra. A distribuição da candidata a esquerda, na cauda da distribuição a posteriori exata, ocorre devido a média da distribuição ter valor esperado 0.1 e uma variância próxima de zero.  Isso significa que na hora de amostrar a partir da função de importância, os valores estavam majoritariamente entre 0 e 0.3 como podemos observar no gráfico.
+
+##### Distribuição de Importância como sendo a posteriori
+
+Já sabendo que a distribuição a posteriori exata é uma $Beta(7,5)$, a escolha da distribuição de importância como sendo $Beta(7,5)$ foi com intenção de ilustrar o que ocorre quando as candidatas geradas são da distribuição a posteriori. Nesse exemplo temos uma média $0.58\bar{3}$ e variância 0.187.
+
+```{r}
+n <- 10
+set.seed(1118)
+bernoulli <- rbinom(n, size = 1, prob = 0.5)
+soma_n <- sum(bernoulli)
+#priori
+alpha <- 1
+beta <- 1
+#candidata (distribuição de importância)
+alpha2 <- 7
+beta2 <- 5
+# 1 gerar amostra de tamanho J da função de importância g(theta) que nesse caso é uma uniforme(0,1)
+set.seed(2745)
+vetor_thetas <-rbeta(20000, 1, 1)
+# 2 para cada theta_i, i = 1 até J, calcule wi e os pesos qi
+w <- c()
+for (i in vetor_thetas) {
+  w = c(w,((((i^(soma_n))*(1 - i)^(n - soma_n))*(((gamma(alpha + beta))/(gamma(alpha)*gamma(beta)))*((i^(alpha - 1))*(1 - i)^(beta - 1))))/((gamma(alpha2 + beta2))/(gamma(alpha2)*gamma(beta2)))*((i^(alpha2 - 1))*(1 - i)^(beta2 - 1))))
+}
+q <- w/sum(w)
+stopifnot(sum(q) >= 0.9999)#garantir que a soma das probabilidades resulte em 1
+# 3 selecionar, de um vetor de amostras theta*, uma amostra com reposicao assumindo que a P(theta=thetai) = qi 
+amostra <- sample(vetor_thetas, size = length(vetor_thetas)/20, replace = TRUE, prob = q)
+hist(amostra, probability = T, xlim = c(0,1))
+curve(dbeta(x, 7, 5), add = T, col = "red")
+```
+Quando escolhemos a posteriori como distribuição de importância, temos maior massa próximo da média $0.58\bar{3}$, resultando em um histograma com observações abaixo do esperado nas caudas e uma concentração no meio, ultrapassando significantemente o esperado pela distribuição a posteriori exata da distribuição Beta(7,5). Isso significa que na hora de amostrar a partir da função de importância, os valores estavam majoritariamente entre 0.2 e 0.8, tendo uma maior representatividade nessa região, como podemos observar no gráfico.
+
+##### Distribuição de Importância como sendo a própria a priori
+
+Agora iremos considerar nossa distribuição de importância como sendo a própria a priori, uma vez que $Unif(0,1) = Beta(1,1)$, espera que o resultado seja algo bem próximo da posteriori, pois por se tratar da mesma distribuição temos a garantia que ela varre bem nosso espaço paramétrico.
+
+```{r}
+n <- 10
+set.seed(1118)
+bernoulli <- rbinom(n, size = 1, prob = 0.5)
+soma_n <- sum(bernoulli)
+#priori
+alpha <- 1
+beta <- 1
+#candidata (distribuição de importância)
+alpha2 <- 1
+beta2 <- 1
+# 1 gerar amostra de tamanho J da função de importância g(theta) que nesse caso é uma uniforme(0,1)
+set.seed(2745)
+vetor_thetas <-rbeta(20000, 1, 1)
+# 2 para cada theta_i, i = 1 até J, calcule wi e os pesos qi
+w <- c()
+for (i in vetor_thetas) {
+  w = c(w,((((i^(soma_n))*(1 - i)^(n - soma_n))*(((gamma(alpha + beta))/(gamma(alpha)*gamma(beta)))*((i^(alpha - 1))*(1 - i)^(beta - 1))))/((gamma(alpha2 + beta2))/(gamma(alpha2)*gamma(beta2)))*((i^(alpha2 - 1))*(1 - i)^(beta2 - 1))))
+}
+q <- w/sum(w)
+stopifnot(sum(q) >= 0.9999)#garantir que a soma das probabilidades resulte em 1
+# 3 selecionar, de um vetor de amostras theta*, uma amostra com reposicao assumindo que a P(theta=thetai) = qi 
+amostra <- sample(vetor_thetas, size = length(vetor_thetas)/20, replace = TRUE, prob = q)
+hist(amostra, probability = T, xlim = c(0,1))
+curve(dbeta(x, 7, 5), add = T, col = "red")
+```
+Como podemos observar no gráfico, essa foi nossa melhor aproximação da posteriori, como esperado.
+
+## Como funciona o cálculo do tamanho da amostra
+
+O recomendado para amostragem é T = J/20 com J sendo o tamanho da nossa função de importância
+## Estudo com dados simulados
+
