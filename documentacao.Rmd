@@ -58,19 +58,49 @@ soma_n <- sum(bernoulli)
 
 ### Método da Rejeição {#metodo-da-rejeicao}
 
-O objetivo desse estudo é avaliar a escolha da distribuição de refência na taxa de aceitação da a priori.
+Para aplicar o método da rejeição é necessário encontrarmos uma constante M > 0 tal que 
+
+$$\frac{f(\theta)}{g(\theta)} \leq M\ \forall{\theta} \in \Theta, \Leftrightarrow M = max \left\{\frac{f(\theta)}{g(\theta)}: \theta \in \Theta\right\}$$
+ou seja, precisamos encontrar  um $M \cdot g(\theta)$ que será uma função maior ou igual em todos os pontos da função $f(\theta)$, que é o núcleo de $h(\theta)$.
+
+O algoritmo para o método consiste em gerar $\theta^{*}$ de uma função qualquer $g(\theta)$ conhecida e queremos ver se essa amostra também é função da nossa $h$ que é uma $f(\theta)$, em seguinda vamos gerar uma $u \sim Unif(0,1)$ e fazer a seguinte comparação $u \leq \frac{f(\theta^{*})}{Mg(\theta^{*})}$, caso a premissa seja verdadeira aceitamos $\theta^{*}$. Esses passos devem se repetir até obter a amostra de tamanho desejado
 
 1. Gere $\theta^{*}$ da função a priori $\pi(\theta)$
 2. Gere $u \sim Uniforme(0,1)$
 3. Se $u \leq \frac{f(x|\theta^{*})}{f(x|\hat{\theta}_{MV})}$ $\Rightarrow$ aceitamos $\theta^{*}$
 4. Repita os passos até obter a amostra com o tamanho que deseja 
 
+O número esperado de valores aceitos em n rodadas do algoritmo é $\frac{n}{M}$, sabendo que quanto maior nosso M, melhor a performance do algoritmo.
 
+Se $h(\theta)=\pi(\theta|x)$ devemos encontrar M tal que
+
+$$M = max_{\theta} \left\{\frac{f(x|\theta)\pi(\theta)}{g(\theta)}\right\}$$
+Tendo $g(\theta)$ como distribuição de referência devemos nos atentar para as seguintes condições
+
+- deve ter cauda platicúrtica (mais pesada) que $\pi(\theta|x)$, desse modo terá variância grande, gerando todo o espaço amostral possível de $f(\theta)$
+- deve poder gerar amostras de $g(\theta)$ facilmente
+- a amostra gerada de $g(\theta)$ deve ser suficientemente grande para cobrir todo o espaço paramétrico e desse modo ter taxa de aceitação razoável 
+
+Apenas com o valor de M, plotando $M_{n},\ i = 1,...,N$ é possível ter uma boa noção da distribuição, diferindo apenas a escala encontrada
+
+```{r}
+#mostrar que apenas com M conseguimos ver algo próximo da distribuição
+```
+
+
+O objetivo desse estudo é avaliar a escolha da distribuição de refência na taxa de aceitação da a priori. 
 
 #### Caso 1
 
 Nesse primeiro caso vamos analisar a construção do método para uma Beta-Bernoulli em seu caso mais simples, quando a distribuição de referência é a própria $Unif(0,1)$
 
+$$\frac{f(\theta)}{g(\theta)} = \frac{f(x|\theta)\pi(\theta)}{\pi(\theta)} = f(x|\theta)$$
+Devemos encontrar M tal que $\frac{f(\theta)}{g(\theta)} \leq M$ para todo $\theta$ em que 
+$$M=f(x|\hat{\theta}_{MV})$$
+Desse modo a razão 
+
+$$\frac{f(\theta)}{Mg(\theta)}=\frac{f(x|\theta)\pi(\theta)}{f(x|\hat{\theta}_{MV})\pi(\theta)}= \frac{f(x|\theta)}{f(x|\hat{\theta}_{MV})}$$
+em que $f(x|\theta)$ é o núcleo da posteriori, $f(x|\hat{\theta}_{MV})$ é o valor de $\theta$ que maximiza a verossimilhança e $\hat{\theta}_{MV} = \frac{\sum _{i}x_{i}}{n}$
 
 ```{r pressure, echo=TRUE}
 # Beta(1,1) ---------------------------------------------------------------
@@ -274,7 +304,19 @@ nrow(armazenar_theta_estrela)/20000#0.0926
 ```
 
 #### Caso 2
-Nesse segundo caso vamos analisar a construção do método para uma Beta-Bernoulli quando a distribuição de referência é diferente da $Unif(0,1)$
+
+Nesse segundo caso vamos analisar a construção do método para uma Beta-Bernoulli quando a distribuição de referência é diferente da $Unif(0,1)$. Considerando $g(\theta) \sim Beta(\alpha^{*},\beta^{*})$ temos:
+
+\begin{equation}
+\begin{split}
+M &= max_{\theta} \left\{\frac{f(x|\theta)\pi(\theta)}{g(\theta)}\right\}
+&= \frac{f(x|\theta)}{f(x)}
+\end{split}
+\end{equation}
+
+$$max_{\theta} \left\{\frac{f(x|\theta)\pi(\theta)}{g(\theta)}\right\}$$
+
+
 
 ```{r}
 # Beta(1,4) ---------------------------------------------------------------
@@ -554,5 +596,6 @@ Como podemos observar no gráfico, essa foi nossa melhor aproximação da poster
 ## Como funciona o cálculo do tamanho da amostra
 
 O recomendado para amostragem é T = J/20 com J sendo o tamanho da nossa função de importância
+
 ## Estudo com dados simulados
 
